@@ -80,7 +80,7 @@ def photometric_augmentation(images,
     r = (3*torch.rand([])).type(torch.int32)
     images = torch.roll(images, r, dims=1) # dim = -1
     r = torch.equal((2*torch.rand([])).type(torch.int32), torch.tensor(1)) # tf.random.uniform([], maxval=2, dtype=tf.int32)
-    images = torch_cond(pred=r,True_fn=lambda: torch.flip(images, dims=[-1]),False_fn=images)
+    images = torch_cond(pred=r,True_fn=lambda: torch.flip(images, dims=[1]),False_fn=images)
     #tf.cond(pred=r,
                      #true_fn=lambda: tf.reverse(images, axis=[-1]),
                      #false_fn=lambda: images)
@@ -213,8 +213,8 @@ def _center_crop(images, height, width):
   width = width
   # get current size
   images_shape = images.shape
-  current_height = images_shape[-3]
-  current_width = images_shape[-2]
+  current_height = images_shape[-2]
+  current_width = images_shape[-1]
   # compute required offset
   offset_height = int((current_height - height) / 2)
   offset_width = int((current_width - width) / 2 )
@@ -271,12 +271,12 @@ def rotate(img, angle_radian, is_flow, mask=None):
     if is_flow:
       # If image is a flow image, scale flow values to be consistent with the
       # rotation.
-      cos = torch.cos(torch.tensor(angle_radian))
-      sin = torch.sin(torch.tensor(angle_radian))
+      #cos = torch.cos(torch.tensor(angle_radian))
+      #sin = torch.sin(torch.tensor(angle_radian))
 
-      rotation_matrix = torch.reshape(torch.tensor([cos, sin, -sin, cos]), [2, 2])
+      #rotation_matrix = torch.reshape(torch.tensor([cos, sin, -sin, cos]), [2, 2])
       #print(img_rotated.shape)
-      img_rotated = torch.matmul(img_rotated.permute(0,3,2,1), rotation_matrix).permute(0,3,2,1)
+      img_rotated = TTF.rotate(img=img_rotated,angle=angle_radian)
       #tf.linalg.matmul(img_rotated, rotation_matrix)
 
     if mask is not None:
@@ -509,7 +509,7 @@ def random_rotation(
 
   if not_empty_crop:
     orig_height = images.shape[-2]
-    orig_width = images.shape[-2]
+    orig_width = images.shape[-1]
     # introduce abbreviations for shorter notation
     cos = torch.cos(angle_radian % pi)
     sin = torch.sin(angle_radian % pi)
@@ -647,8 +647,8 @@ def build_selfsup_transformations(num_flow_levels=3,
 
     shift_height = shift_heights[i]
     shift_width = shift_widths[i]
-    height = images.shape[-3]
-    width = images.shape[-2]
+    height = images.shape[-2]
+    width = images.shape[-1]
 
     # Assert that the cropped bounding box does not go out of the image frame.
     op1 = torch_compat_v1_greater_equal(crop_height + shift_height, 0)
@@ -669,15 +669,15 @@ def build_selfsup_transformations(num_flow_levels=3,
     op6 = torch_compat_v1_greater(
         width, 2 * crop_width, message='Image width is too small for cropping.')
     #with tf.control_dependencies([op1, op2, op3, op4, op5, op6]):
-    images = images[:, crop_height + shift_height:height - crop_height +
+    images = images[:, :,crop_height + shift_height:height - crop_height +
                       shift_height, crop_width + shift_width:width -
-                      crop_width + shift_width, :]
+                      crop_width + shift_width]
     if resize:
       images = uflow_utils.resize(images, height, width, is_flow=is_flow)
-      images.set_shape((images.shape[0], height, width, images.shape[3]))
+      images.reshape((images.shape[0], images.shape[1],height, width))
     else:
-      images.set_shape((images.shape[0], height - 2 * crop_height,
-                        width - 2 * crop_width, images.shape[3]))
+      images.reshape((images.shape[0], images.shape[1],height - 2 * crop_height,
+                        width - 2 * crop_width))
     return images
 
   max_divisor = 2**(num_flow_levels - 1)
