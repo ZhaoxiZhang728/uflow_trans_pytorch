@@ -3,7 +3,7 @@ import glob
 import numpy as np
 from PIL import Image
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset,DataLoader
 import torchvision.transforms as transforms
 
 class EndoDataset(Dataset):
@@ -11,13 +11,12 @@ class EndoDataset(Dataset):
         self.sequences = sequences
         self.transform = transform
 
-        self.n_samples = 0
-        self.seq_vals = np.empty(len(self.sequences), dtype=np.int32)
-        for i,sequence in enumerate(self.sequences):
-            n = len(glob.glob(os.path.join(sequence,'*.png'))+glob.glob(os.path.join(sequence,'*.jpg')))
-            self.n_samples += int(n * (n-1) / 2)
-            self.seq_vals[i] = self.n_samples
+        self.seq_lens = len(self.sequences)
 
+        self.n_samples = 0
+        for i, sequence in enumerate(self.sequences):
+            n = len(glob.glob(os.path.join(sequence, '*.png')) + glob.glob(os.path.join(sequence, '*.jpg')))
+            self.n_samples += int(n)
     def __getitem__(self, index):
         sequence = self.index_to_sequence(index)
         # for training, randomly sample pairs from sequence
@@ -28,14 +27,6 @@ class EndoDataset(Dataset):
             im1 = self.transform(im1)
             im2 = self.transform(im2)
 
-        # num_levels = 3
-        # im1_pyr = [im1]        
-        # im1_pyr.append(layer1(im1))
-        # im1_pyr.append(layer2(im1))
-
-        # im2_pyr = [im2]
-        # im2_pyr.append(layer1(im2))
-        # im2_pyr.append(layer2(im2))
         dicts = {
             'images': torch.stack([im1, im2])  # the output size after dataloader is [batch_size, 2, 3,height,width]
             ,
@@ -51,14 +42,14 @@ class EndoDataset(Dataset):
     def __len__(self):
         return self.n_samples
 
-    def index_to_sequence(self, index):
-        seq_index = np.amin(np.where(index <= self.seq_vals))
+    def index_to_sequence(self, index):# index doesn't have any meaning.
+        seq_index = np.amin(np.random.randint(0, self.seq_lens))
         sequence = self.sequences[seq_index]
         return glob.glob(os.path.join(sequence,'*.png'))+glob.glob(os.path.join(sequence,'*.jpg'))
 
 
 if __name__ == '__main__':
-    stinl_path = 'E:/dataset/sintel/training/clean'
+    stinl_path = '/Users/zhxzhang/dataset/sintel/MPI-Sintel-complete/training/clean'
     all_data = glob.glob(os.path.join(stinl_path, '*'))
     all_data = sorted([x for x in all_data if os.path.isdir(x)])
     training_transforms = transforms.Compose([
@@ -66,4 +57,5 @@ if __name__ == '__main__':
         transforms.ToTensor()
     ])
     ds = EndoDataset(all_data,transform=training_transforms)
-    print(ds[0]['images'].shape)
+    print(ds[10])
+

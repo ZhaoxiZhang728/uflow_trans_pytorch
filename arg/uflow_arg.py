@@ -57,7 +57,7 @@ def parser_arg():
                       'Do not save model checkpoints during training.')
     parser.add_argument('--epoch_length',type=int,default=1000,
                          help='Number of gradient steps per epoch.')
-    parser.add_argument('--num_train_steps', type=int,default=1000,help=
+    parser.add_argument('--num_train_steps', type=int,default=10,help=
                          'Number of gradient steps to train for.')
     parser.add_argument('--selfsup_after_num_steps', type=int,default=5e5,help=
                          'Number of gradient steps before self-supervision.')
