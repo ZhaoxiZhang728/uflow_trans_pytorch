@@ -17,6 +17,7 @@ class EndoDataset(Dataset):
         for i, sequence in enumerate(self.sequences):
             n = len(glob.glob(os.path.join(sequence, '*.png')) + glob.glob(os.path.join(sequence, '*.jpg')))
             self.n_samples += int(n)
+
     def __getitem__(self, index):
         sequence = self.index_to_sequence(index)
         # for training, randomly sample pairs from sequence

@@ -192,7 +192,8 @@ def main():
         trainer = pl.Trainer(accelerator='gpu', devices=args.gpu, default_root_dir=args.save_checkpoint_dir,
                              check_val_every_n_epoch=1, max_epochs=args.num_train_steps)
     else:
-        trainer = pl.Trainer(default_root_dir=args.save_checkpoint_dir,
+        trainer = pl.Trainer(accelerator='gpu',
+                            default_root_dir=args.save_checkpoint_dir,
                              check_val_every_n_epoch=1,
                              max_epochs=args.num_train_steps)
 

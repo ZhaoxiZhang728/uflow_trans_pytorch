@@ -1,5 +1,5 @@
 import torch
-from torch.nn import LazyConv2d,Sequential,LeakyReLU,LazyConvTranspose2d,ZeroPad2d,ModuleList,Identity
+from torch.nn import LazyConv2d,Sequential,LeakyReLU,LazyConvTranspose2d,ZeroPad2d,ModuleList,Identity,Conv2d
 import torch.nn.functional as F
 import collections
 from utils.uflow_utils import upsample,flow_to_warp
@@ -271,22 +271,26 @@ class PWCFlow(pl.LightningModule):
   def _build_refinement_model(self):
         """Build model for flow refinement using dilated convolutions."""
         layers = []
+        starter = 5970
         for c, d in [(128, 1), (128, 2), (128, 4), (96, 8), (64, 16), (32, 1)]:
             layers.append(
-                LazyConv2d(
-                    int(c * self._channel_multiplier),
+                    Conv2d(
+                    in_channels=starter,
+                    out_channels=int(c * self._channel_multiplier),
                     kernel_size=(3, 3),
                     stride=1,
-                    padding=(d*(3-1)//2,d*(3-1)//2), # dilation * (kernal_size - 1) //2
+                    padding='same', # dilation * (kernal_size - 1) //2
                     dilation=d))
             layers.append(
                 LeakyReLU(negative_slope=self._leaky_relu_alpha))
+            starter = int(c * self._channel_multiplier)
         layers.append(
-                LazyConv2d(
+                Conv2d(
+                in_channels=starter,
                 out_channels=2,
                 kernel_size=(3, 3),
                 stride=1,
-                padding=1))
+                padding='same'))
         return Sequential(*layers)
 
 
@@ -367,5 +371,8 @@ class PWCFlow(pl.LightningModule):
 
 if __name__ == '__main__':
     uflow = PWCFlow()
+    count = 0
     for param in uflow.parameters():
         print(param)
+        count +=1
+    print(count)

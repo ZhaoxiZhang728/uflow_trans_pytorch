@@ -1,0 +1,7 @@
+argparse~=1.4.0
+torchvision~=0.14.0+cu117
+torch~=1.13.0+cu117
+matplotlib~=3.5.3
+numpy~=1.21.6
+pillow~=9.5.0
+lightning~=1.9.5

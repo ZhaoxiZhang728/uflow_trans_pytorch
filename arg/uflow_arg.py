@@ -27,12 +27,12 @@ def parser_arg():
     parser.add_argument('--verbose', '-v', action='store_true', help='Toggle verbose')
     parser.add_argument('--predict_data_dir', type=str, default='', help='Predict data directory')
     parser.add_argument('--predict_output_dir', type=str, default='logs/predict', help='Predict output directory')
-    parser.add_argument('--save_checkpoint_dir', type=str, default='E:/pythonproject/uflow/result/checkpoint',
+    parser.add_argument('--save_checkpoint_dir', type=str, default='/home/zhaoxizh/zhaoxizh_project/uflow/result/checkpoint',
                         help='Training log output directory')
     parser.add_argument('--load_checkpoint', type=str, default='', help='Load checkpoint')
     parser.add_argument('--check',type=bool,default=True,help='For checking whether successfully read the arg')
-    parser.add_argument('--train_data_dir', type=str, default='E:/dataset/sintel/training/clean', help='Train data directory')
-    parser.add_argument('--test_data_dir', type=str, default='E:/dataset/sintel/test/clean', help='Test data directory')
+    parser.add_argument('--train_data_dir', type=str, default='/home/zhaoxizh/zhaoxizh_project/dataset/sintel/training/clean', help='Train data directory')
+    parser.add_argument('--test_data_dir', type=str, default='/home/zhaoxizh/zhaoxizh_project/dataset/sintel/test/clean', help='Test data directory')
     parser.add_argument('--no_tf_function',type=bool,default=False,help='If True, run without'
         ' tf functions. This incurs a performance hit, but can'
         ' make debugging easier.')
@@ -58,7 +58,7 @@ def parser_arg():
     parser.add_argument('--epoch_length',type=int,default=1000,
                          help='Number of gradient steps per epoch.')
     parser.add_argument('--num_train_steps', type=int,default=10,help=
-                         'Number of gradient steps to train for.')
+                         'Number of! gradient steps to train for.')
     parser.add_argument('--selfsup_after_num_steps', type=int,default=5e5,help=
                          'Number of gradient steps before self-supervision.')
     parser.add_argument('--selfsup_ramp_up_steps', type=int,default=1e5,help=

@@ -65,6 +65,7 @@ class PWCFeaturePyramid(pl.LightningModule):
         self._leaky_relu_alpha = leaky_relu_alpha
         self._level1_num_1x1 = level1_num_1x1
         self.mo = None
+        start = 3
         for level, (num_layers, num_filters) in enumerate(filters):
             group = []
             for i in range(num_layers):
@@ -77,8 +78,9 @@ class PWCFeaturePyramid(pl.LightningModule):
                     k = 3 # for calculating the kernal size
                 else:
                     k = 1
-                conv = nn.LazyConv2d(
-                    int(num_filters * self._channel_multiplier),
+                conv = nn.Conv2d(
+                    in_channels=start,
+                    out_channels=int(num_filters * self._channel_multiplier),
                     kernel_size=(k,k),
                     stride=stride,
                     padding = (k//2,k//2),
@@ -87,8 +89,14 @@ class PWCFeaturePyramid(pl.LightningModule):
 
                 activation = nn.LeakyReLU(negative_slope=self._leaky_relu_alpha)
                 group.extend([conv,activation])
+                start = int(num_filters * self._channel_multiplier)
             self.convs.append(nn.Sequential(*group))
         self.mo = nn.Sequential(*self.convs)
+        self.freeze_weight(self.mo)
+
+    def freeze_weight(self, model):
+        for param in model.parameters():
+            param.requires_grad = False
     def get_model(self): # get the nn sequence I create
         return self.mo
 
