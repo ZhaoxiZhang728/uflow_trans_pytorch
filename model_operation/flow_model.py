@@ -148,16 +148,16 @@ class PWCFlow(pl.LightningModule):
         self._flow_layers = ModuleList(self._build_flow_layers())
         if not self._use_cost_volume:
             self._cost_volume_surrogate_convs = ModuleList(self._build_cost_volume_surrogate_convs())
-            self.freeze_weight(self._cost_volume_surrogate_convs)
+            #self.freeze_weight(self._cost_volume_surrogate_convs)
         if self._num_context_up_channels:
             self._context_up_layers = ModuleList(self._build_upsample_layers(out_channel=int(self._num_context_up_channels * self._channel_multiplier)))
-            self.freeze_weight(self._context_up_layers)
+            #self.freeze_weight(self._context_up_layers)
         if self._shared_flow_decoder:
             self._1x1_shared_decoder = ModuleList(self._build_1x1_shared_decoder())
-            self.freeze_weight(self._1x1_shared_decoder)
+            #self.freeze_weight(self._1x1_shared_decoder)
         self.activation = LeakyReLU(negative_slope=self._leaky_relu_alpha)
 
-        self.freeze_weight(self._flow_layers)
+        #self.freeze_weight(self._flow_layers)
   def forward(self, feature_pyramid1, feature_pyramid2, training=False):
         flow_up = None
         context_up = None

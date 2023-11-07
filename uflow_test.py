@@ -57,7 +57,7 @@ class UflowTest(absltest.TestCase):
              lr_decay_type = args.lr_decay_type)
 
 
-        trainer = pl.Trainer(accelerator='gpu',max_epochs=1)
+        trainer = pl.Trainer(accelerator='gpu',max_epochs=5)
 
         trainer.fit(uflow,it)
 if __name__ == '__main__':

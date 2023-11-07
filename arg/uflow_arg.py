@@ -19,7 +19,7 @@ import argparse
 
 def parser_arg():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--num_workers', type=int, default=4)
+    parser.add_argument('--num_workers', type=int, default=9)
 
     parser.add_argument('--n_gpu', type=int, default=0, help='Number GPU devices to use (default 0 = CPU only)')
     parser.add_argument('--gpu', type=int, nargs='*',
@@ -85,7 +85,7 @@ def parser_arg():
                         'decay rate of lr')
     parser.add_argument('--lr_decay_steps', type=int,default=10,help=
                         '')
-    parser.add_argument('--lr_decay_type', type=str,default='none',help=
+    parser.add_argument('--lr_decay_type', type=str,default='linear',help=
                         'One of ["none", "exponential", "linear", "gaussian"]')
     parser.add_argument('--stop_gradient_mask', type=bool,default=True, help=
                         'Whether or not to stop the gradient propagation through the occlusion mask.')

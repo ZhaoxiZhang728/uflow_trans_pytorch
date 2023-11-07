@@ -78,7 +78,7 @@ def create_uflow(args):
 
   uflow = Multinet(
       optimizer=args.optimizer,
-      learning_rate=0.0001,
+      learning_rate=0.00001,
       only_forward=args.only_forward,
       level1_num_layers=args.level1_num_layers,
       level1_num_filters=args.level1_num_filters,

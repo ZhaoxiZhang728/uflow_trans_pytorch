@@ -15,7 +15,7 @@ class Multinet(pl.LightningModule):
     def __init__(
       self,
       optimizer='adam',
-      learning_rate=0.0002,
+      learning_rate=0.00001,
       only_forward=False,
       level1_num_layers=3,
       level1_num_filters=32,
@@ -239,6 +239,12 @@ class Multinet(pl.LightningModule):
             return losses['total-loss']
 
     def training_step(self, batch, batch_idx):
+        '''
+        To make sure the lr is updating
+        for idx, optimizer in enumerate(self.trainer.optimizers):
+            lr = optimizer.param_groups[0]['lr']
+            print(f"Current Learning Rate for optimizer {idx}: {lr}"
+        '''
         loss = self.forward_backprop(batch)
         self.log('train-loss', loss)
         return loss

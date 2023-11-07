@@ -323,7 +323,7 @@ def compute_loss(
           teacher_mask, i_or_ij=(i, j), is_flow=False)
 
 
-      error = robust_l1(teacher_flow.clone().detach()- student_flow)
+      error = robust_l1(teacher_flow.clone().detach()- student_flow.clone().detach())
       with torch.no_grad():
         mask = teacher_mask * student_mask
       losses['selfsup'] += (
