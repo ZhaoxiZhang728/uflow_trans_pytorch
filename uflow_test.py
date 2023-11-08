@@ -45,7 +45,7 @@ class UflowTest(absltest.TestCase):
                 x > args.occ_after_num_steps_backward_zero,
         }
         #device = "cuda" if torch.cuda.is_available() else "mps"
-        inputs = torch.zeros([2, 3, 256, 256])
+        inputs = torch.zeros([2, 3, 640, 640])
         ds = Video_dataset(inputs)
         it = DataLoader(ds, batch_size=1)
         uflow = Multinet(
@@ -55,6 +55,7 @@ class UflowTest(absltest.TestCase):
             lr_decay_after_num_steps=args.lr_decay_after_num_steps,
             gpu_learning_rate = args.gpu_learning_rate,
              lr_decay_type = args.lr_decay_type)
+
         trainer = pl.Trainer(accelerator='cpu',max_epochs=1)
 
         trainer.fit(uflow,it)

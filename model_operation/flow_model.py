@@ -115,7 +115,7 @@ def compute_cost_volume(features1, features2, max_displacement):
 
 
 
-class PWCFlow(pl.LightningModule):
+class PWCFlow(nn.Module):
   def __init__(self,
                  leaky_relu_alpha=0.1,
                  dropout_rate=0.25,
@@ -255,6 +255,7 @@ class PWCFlow(pl.LightningModule):
 
 
         cf = torch.concat([context, flow],dim=1)  # concat the context and flow
+
         refinement = self._refine_model(cf)
 
         if (training and self._drop_out_rate):
@@ -367,5 +368,7 @@ class PWCFlow(pl.LightningModule):
 
 if __name__ == '__main__':
     uflow = PWCFlow()
-    for param in uflow.parameters():
-        print(param)
+    feature1 = torch.randn([5,1, 32, 23, 55])
+    feature2 = torch.randn([5,1, 32, 23, 55])
+    uflow = PWCFlow(feature1,feature2)
+
