@@ -108,7 +108,7 @@ class Multinet(pl.LightningModule):
                         use_bfloat16=use_bfloat16
             )
             self._teacher_feature_net.load_state_dict(self._feature_net.state_dict())
-            #self._teacher_feature_net.freeze()
+            self._teacher_feature_net.freeze()
 
 
         if self._teacher_flow_net is None:
@@ -124,7 +124,7 @@ class Multinet(pl.LightningModule):
                 shared_flow_decoder=shared_flow_decoder
             )
             self._teacher_flow_net.load_state_dict(self._flow_net.state_dict())
-            #self._teacher_flow_net.freeze()
+            self._teacher_flow_net.freeze()
 
         self._occlusion_estimation = occlusion_estimation
         self.plot_dir = plot_dir

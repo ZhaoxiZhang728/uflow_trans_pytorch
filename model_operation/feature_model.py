@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import lightning as pl
 
-class PWCFeaturePyramid(pl.LightningModule):
+class PWCFeaturePyramid(nn.Module):
     """Model for computing a feature pyramid from an image."""
 
     def __init__(self,
@@ -65,47 +65,44 @@ class PWCFeaturePyramid(pl.LightningModule):
         self._leaky_relu_alpha = leaky_relu_alpha
         self._level1_num_1x1 = level1_num_1x1
         self.mo = None
-        start = 3
+        starter = 3
         for level, (num_layers, num_filters) in enumerate(filters):
             group = []
+
             for i in range(num_layers):
                 stride = 1
                 if i == 0 or (i == 1 and level == 0 and
                               pyramid_resolution == 'quarter'):
                     stride = 2
-
                 if level > 0 or i < num_layers - level1_num_1x1:
                     k = 3 # for calculating the kernal size
                 else:
                     k = 1
+
                 conv = nn.Conv2d(
-                    in_channels=start,
+                    in_channels=starter,
                     out_channels=int(num_filters * self._channel_multiplier),
                     kernel_size=(k,k),
                     stride=stride,
-                    padding = (k//2,k//2),
-                    # padding = 'valid'
+                    padding=(k//2,k//2),
                     dtype=self._dtype_policy)
 
                 activation = nn.LeakyReLU(negative_slope=self._leaky_relu_alpha)
                 group.extend([conv,activation])
-                start = int(num_filters * self._channel_multiplier)
+                starter = int(num_filters * self._channel_multiplier)
             self.convs.append(nn.Sequential(*group))
         self.mo = nn.ModuleList(self.convs)
         self.freeze_weight(self.mo)
-
     def freeze_weight(self, model):
         for param in model.parameters():
             param.requires_grad = False
-    def get_model(self): # get the nn sequence I create
-        return self.mo
-
     def forward(self, x, split_features_by_sample=False,training=False):
         if self._use_bfloat16:
             x = x.type(torch.bfloat16)
         x = x * 2. - 1.  # Rescale input from [0,1] to [-1, 1]
         features = []
         for layer in self.mo:
+
             x = layer(x)
             features.append(x.clone())
         if split_features_by_sample:
@@ -119,9 +116,5 @@ class PWCFeaturePyramid(pl.LightningModule):
 
 if __name__ == '__main__':
     uflow = PWCFeaturePyramid()
-    count = 0
     for i in uflow.parameters():
         print(i)
-        count+=1
-
-    print(count)
