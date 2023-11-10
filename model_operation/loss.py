@@ -342,20 +342,22 @@ def compute_loss(
 
 
 def supervised_loss(weights, ground_truth_flow, ground_truth_valid,
-                    predicted_flow):
+                    predicted_flows):
   """Returns a supervised l1 loss when ground-truth flow is provided."""
   losses = {}
+  predicted_flow = predicted_flows[(0, 1, 'augmented')][0]
   # ground truth flow is given from image 0 to image 1
   #predicted_flow = predicted_flows[(0, 1, 'augmented')][0]
   # resize flow to match ground truth (only changes resolution if ground truth
   # flow was not resized during loading (resize_gt_flow=False)
   _, _, height, width = list(ground_truth_flow.shape)
   predicted_flow = resize(predicted_flow, height, width, is_flow=True)
+  device = ground_truth_flow.device
   # compute error/loss metric
   error = robust_l1(ground_truth_flow - predicted_flow)
   if ground_truth_valid is None:
     b, _ ,h, w = list(ground_truth_flow.shape)
-    ground_truth_valid = torch.ones(size = (b, 1, h, w), dtype=torch.float32)
+    ground_truth_valid = torch.ones(size = (b, 1, h, w), dtype=torch.float32,device=device)
   losses['supervision'] = (
       weights['supervision'] *
       torch.sum(input=ground_truth_valid * error) /

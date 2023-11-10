@@ -92,7 +92,7 @@ class PWCFeaturePyramid(pl.LightningModule):
                 start = int(num_filters * self._channel_multiplier)
             self.convs.append(nn.Sequential(*group))
         self.mo = nn.ModuleList(self.convs)
-        #self.freeze_weight(self.mo)
+        self.freeze_weight(self.mo)
 
     def freeze_weight(self, model):
         for param in model.parameters():

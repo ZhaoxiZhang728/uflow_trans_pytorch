@@ -148,16 +148,16 @@ class PWCFlow(pl.LightningModule):
         self._flow_layers = ModuleList(self._build_flow_layers())
         if not self._use_cost_volume:
             self._cost_volume_surrogate_convs = ModuleList(self._build_cost_volume_surrogate_convs())
-            #self.freeze_weight(self._cost_volume_surrogate_convs)
+            self.freeze_weight(self._cost_volume_surrogate_convs)
         if self._num_context_up_channels:
             self._context_up_layers = ModuleList(self._build_upsample_layers(out_channel=int(self._num_context_up_channels * self._channel_multiplier)))
-            #self.freeze_weight(self._context_up_layers)
+            self.freeze_weight(self._context_up_layers)
         if self._shared_flow_decoder:
             self._1x1_shared_decoder = ModuleList(self._build_1x1_shared_decoder())
-            #self.freeze_weight(self._1x1_shared_decoder)
+            self.freeze_weight(self._1x1_shared_decoder)
         self.activation = LeakyReLU(negative_slope=self._leaky_relu_alpha)
 
-        #self.freeze_weight(self._flow_layers)
+        self.freeze_weight(self._flow_layers)
   def forward(self, feature_pyramid1, feature_pyramid2, training=False):
         flow_up = None
         context_up = None
@@ -244,6 +244,7 @@ class PWCFlow(pl.LightningModule):
             if flow_up is not None and self._accumulate_flow:
                 flow = flow + flow_up
 
+
             # Upsample flow for the next lower level.
             flow_up = upsample(flow, is_flow=True)
             if self._num_context_up_channels:
@@ -311,15 +312,17 @@ class PWCFlow(pl.LightningModule):
   def _build_upsample_layers(self, out_channel):
       """Build layers for upsampling via deconvolution."""
       layers = []
+      in_channel = 32
       for unused_level in range(self._num_levels):
       #for unused_level in range(self._num_levels):
           layers.append(
-                LazyConvTranspose2d(
+                nn.ConvTranspose2d(
+                  in_channels=in_channel,
                   out_channels=out_channel,
                   kernel_size=(4, 4),
                   stride=2,
-                  # padding='same',
-                  padding=1))
+                  padding=1)
+          )
       return layers
 
   def _build_flow_layers(self):
@@ -400,7 +403,5 @@ class PWCFlow(pl.LightningModule):
 if __name__ == '__main__':
     uflow = PWCFlow()
     count = 0
-    for param in uflow.parameters():
+    for param in uflow._refine_model.parameters():
         print(param)
-        count +=1
-    print(count)

@@ -153,6 +153,7 @@ class Multinet(pl.LightningModule):
             'smooth2': 2.0,
             'edge_constant': 100.0,
             'census': 1.0,
+            'supervision':1.0
             }
         self.distance_metrics = distance_metrics
         self.occ_active  = occ_active
@@ -165,17 +166,15 @@ class Multinet(pl.LightningModule):
 
         images, labels = batch['images'], batch['labels']
 
-        ground_truth_flow = labels['flow_uv'] if labels['flow_uv'] else None
-        ground_truth_valid = labels['flow_valid'] if labels['flow_valid'] else None
-        ground_truth_occlusions = labels['occlusions'] if labels['occlusions'] else None
-        images_without_photo_aug = labels['images_without_photo_aug'] if labels['images_without_photo_aug'] else None
+        ground_truth_flow = labels['flow_uv']
+        ground_truth_valid = None
+        ground_truth_occlusions = None
+        images_without_photo_aug = None
 
         if self._train_with_supervision:
             if ground_truth_flow is None:
                 raise ValueError('Need ground truth flow to compute supervised loss.')
-            if self._train_with_supervision:
-                if ground_truth_flow is None:
-                    raise ValueError('Need ground truth flow to compute supervised loss.')
+            else:
                 flows = compute_flow_for_supervised_loss(
                     self._feature_net, self._flow_net, batch=images, training=True)
                 losses = supervised_loss(self.weights, ground_truth_flow,

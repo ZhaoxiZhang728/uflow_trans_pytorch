@@ -31,8 +31,8 @@ def parser_arg():
                         help='Training log output directory')
     parser.add_argument('--load_checkpoint', type=str, default='', help='Load checkpoint')
     parser.add_argument('--check',type=bool,default=True,help='For checking whether successfully read the arg')
-    parser.add_argument('--train_data_dir', type=str, default='/home/zhaoxizh/zhaoxizh_project/dataset/sintel/training/clean', help='Train data directory')
-    parser.add_argument('--test_data_dir', type=str, default='/home/zhaoxizh/zhaoxizh_project/dataset/sintel/test/clean', help='Test data directory')
+    parser.add_argument('--train_data_dir', type=str, default='/playpen/zhaoxizh/datasets/FC_dataset', help='Train data directory')
+    parser.add_argument('--test_data_dir', type=str, default='', help='Test data directory')
     parser.add_argument('--no_tf_function',type=bool,default=False,help='If True, run without'
         ' tf functions. This incurs a performance hit, but can'
         ' make debugging easier.')
@@ -178,7 +178,7 @@ def parser_arg():
                         'Which type of distance metric to use when computing loss.')
     parser.add_argument('--distance_photo', type=str,default='robust_l1', help=
                         'Which type of distance metric to use when computing loss.')
-    parser.add_argument('--use_supervision', type=bool,default=False, help=
+    parser.add_argument('--use_supervision', type=bool,default=True, help=
                         'Whether or not to train with a supervised loss.')
     parser.add_argument('--resize_gt_flow_supervision', type=bool,default=True, help=
                         'Whether or not to resize ground truth flow for the supervised loss.')
