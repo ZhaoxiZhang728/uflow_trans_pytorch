@@ -58,5 +58,5 @@ if __name__ == '__main__':
         transforms.ToTensor()
     ])
     ds = EndoDataset(all_data,transform=training_transforms)
-    print(ds[10])
+
 

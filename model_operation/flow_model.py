@@ -1,5 +1,5 @@
 import torch
-from torch.nn import LazyConv2d,Sequential,LeakyReLU,LazyConvTranspose2d,ZeroPad2d,ModuleList,Identity,Conv2d
+from torch.nn import LazyConv2d,Sequential,LeakyReLU,LazyConvTranspose2d,ZeroPad2d,ModuleList,Identity
 import torch.nn.functional as F
 import collections
 from utils.uflow_utils import upsample,flow_to_warp
@@ -199,6 +199,7 @@ class PWCFlow(pl.LightningModule):
                 cost_volume = self._cost_volume_surrogate_convs[level](concat_features)
 
             cost_volume = self.activation(cost_volume)
+
             if self._shared_flow_decoder:
                 # This will ensure to work for arbitrary feature sizes per level.
                 features1 = self._1x1_shared_decoder[level](features1)
@@ -244,7 +245,6 @@ class PWCFlow(pl.LightningModule):
             if flow_up is not None and self._accumulate_flow:
                 flow = flow + flow_up
 
-
             # Upsample flow for the next lower level.
             flow_up = upsample(flow, is_flow=True)
             if self._num_context_up_channels:
@@ -271,40 +271,38 @@ class PWCFlow(pl.LightningModule):
   def _build_refinement_model(self):
         """Build model for flow refinement using dilated convolutions."""
         layers = []
-        starter = 34
         for c, d in [(128, 1), (128, 2), (128, 4), (96, 8), (64, 16), (32, 1)]:
             layers.append(
-                    Conv2d(
-                    in_channels=starter,
-                    out_channels=int(c * self._channel_multiplier),
+                LazyConv2d(
+                    int(c * self._channel_multiplier),
                     kernel_size=(3, 3),
                     stride=1,
-                    padding='same', # dilation * (kernal_size - 1) //2
+                    padding=(d*(3-1)//2,d*(3-1)//2), # dilation * (kernal_size - 1) //2
                     dilation=d))
             layers.append(
                 LeakyReLU(negative_slope=self._leaky_relu_alpha))
-            starter = int(c * self._channel_multiplier)
         layers.append(
-                Conv2d(
-                in_channels=starter,
+                LazyConv2d(
                 out_channels=2,
                 kernel_size=(3, 3),
                 stride=1,
-                padding='same'))
+                padding=1))
         return Sequential(*layers)
 
 
   def _build_cost_volume_surrogate_convs(self):
       layers = []
       for _ in range(self._num_levels):
-          layers.append(
-                  nn.Conv2d(
-                  in_channels=64,
+          layers.append(Sequential(
+                  ZeroPad2d(
+                      (2, 1, 2, 1)  # equal to padding = 'same' because the kernal size is (4,4)
+                  ),
+                  LazyConv2d(
                   out_channels=int(64 * self._channel_multiplier),
                   kernel_size=(4, 4),
                   # P = ((S-1)*W-S+F)/2, with F = filter size, S = stride, W = input size
                   stride=(1, 1)
-              )
+              ))
           )
       
       return layers
@@ -312,45 +310,38 @@ class PWCFlow(pl.LightningModule):
   def _build_upsample_layers(self, out_channel):
       """Build layers for upsampling via deconvolution."""
       layers = []
-      in_channel = 32
       for unused_level in range(self._num_levels):
       #for unused_level in range(self._num_levels):
           layers.append(
-                nn.ConvTranspose2d(
-                  in_channels=in_channel,
+                LazyConvTranspose2d(
                   out_channels=out_channel,
                   kernel_size=(4, 4),
                   stride=2,
-                  padding=1)
-          )
+                  # padding='same',
+                  padding=1))
       return layers
 
   def _build_flow_layers(self):
       """Build layers for flow estimation."""
       # Empty list of layers level 0 because flow is only estimated at levels > 0.
       result = [Identity()]
-      channel_in_level_5 = [113,241,369,465,529]
-      channel_in_rest = [147,275,403,499,563]
-      for i in range(1, self._num_levels-1):
+      for i in range(1, self._num_levels):
           layer = []
-          for o,i in zip([128, 128, 96, 64, 32],channel_in_rest):
-              layer.append(Sequential(
-                      Conv2d(
-                          in_channels=i,
-                          out_channels=int(o * self._channel_multiplier),
+          for c in [128, 128, 96, 64, 32]:
+              layer.append(
+                      LazyConv2d(
+                          int(c * self._channel_multiplier),
                           kernel_size=(3, 3),
                           stride=1,
-                          padding=1),
-
+                          padding=1))
+              layer.append(
                       LeakyReLU(
                           negative_slope=self._leaky_relu_alpha)
               )
-          )
 
           layer.append(
-                Conv2d(
-                 in_channels=32,
-                  out_channels=2,
+              LazyConv2d(
+                  2,
                   kernel_size=(3, 3),
                   stride=1,
                   padding=1
@@ -359,31 +350,6 @@ class PWCFlow(pl.LightningModule):
           if self._shared_flow_decoder:
               return L
           result.append(L)
-      layer = []
-      for o, i in zip([128, 128, 96, 64, 32], channel_in_level_5):
-          layer.append(Sequential(
-              Conv2d(
-                  in_channels=i,
-                  out_channels=int(o * self._channel_multiplier),
-                  kernel_size=(3, 3),
-                  stride=1,
-                  padding=1),
-
-              LeakyReLU(
-                  negative_slope=self._leaky_relu_alpha)
-          )
-          )
-
-      layer.append(
-          Conv2d(
-              in_channels=32,
-              out_channels=2,
-              kernel_size=(3, 3),
-              stride=1,
-              padding=1
-          ))
-      L = Sequential(*layer)
-      result.append(L)
       return result
 
 
@@ -392,8 +358,7 @@ class PWCFlow(pl.LightningModule):
       # Empty list of layers level 0 because flow is only estimated at levels > 0.
       result = [Identity()]
       for _ in range(1, self._num_levels):
-            result.append(nn.Conv2d(
-                in_channels=32,
+            result.append(LazyConv2d(
                 out_channels=32,
                 kernel_size=(1, 1),
                 stride=1))
@@ -402,6 +367,5 @@ class PWCFlow(pl.LightningModule):
 
 if __name__ == '__main__':
     uflow = PWCFlow()
-    count = 0
-    for param in uflow._refine_model.parameters():
+    for param in uflow.parameters():
         print(param)
