@@ -70,7 +70,7 @@ def weighted_ssim(x, y, weight, c1=float('inf'), c2=9e-6, weight_epsilon=0.01):
   if c1 == float('inf') and c2 == float('inf'):
     raise ValueError('Both c1 and c2 are infinite, SSIM loss is zero. This is '
                      'likely unintended.')
-  weight = torch.unsqueeze(weight, -1)
+
   average_pooled_weight = _avg_pool3x3(weight)
   weight_plus_epsilon = weight + weight_epsilon
   inverse_average_pooled_weight = 1.0 / (average_pooled_weight + weight_epsilon)
@@ -270,8 +270,9 @@ def compute_loss(
                                          robust_l1(flow_gyy), flows, plot_dir)
 
     if 'ssim' in weights:
+
       ssim_error, avg_weight = weighted_ssim(warped_images[key], images[i],
-                                             torch.squeeze(mask_level0, dim=-1))
+                                             mask_level0)
 
       losses['ssim'] += weights['ssim'] * (
           torch.sum(input=ssim_error * avg_weight) /
@@ -286,7 +287,7 @@ def compute_loss(
 
     if 'selfsup' in weights:
       assert selfsup_transform_fns is not None
-      _, _ ,h, w = list(flows[key][2].shape)
+      _, _ ,h, w = flows[key][2].shape
       teacher_flow = flows[(i, j, 'original-teacher')][2]
       student_flow = flows[(i, j, 'transformed-student')][2]
       teacher_flow = selfsup_transform_fns[2](
@@ -352,11 +353,11 @@ def supervised_loss(weights, ground_truth_flow, ground_truth_valid,
   # flow was not resized during loading (resize_gt_flow=False)
   _, _, height, width = list(ground_truth_flow.shape)
   predicted_flow = resize(predicted_flow, height, width, is_flow=True)
-  device = ground_truth_flow.device
   # compute error/loss metric
   error = robust_l1(ground_truth_flow - predicted_flow)
   if ground_truth_valid is None:
     b, _ ,h, w = list(ground_truth_flow.shape)
+    device = ground_truth_flow.device
     ground_truth_valid = torch.ones(size = (b, 1, h, w), dtype=torch.float32,device=device)
   losses['supervision'] = (
       weights['supervision'] *

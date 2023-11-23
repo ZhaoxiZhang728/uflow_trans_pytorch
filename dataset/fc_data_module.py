@@ -11,7 +11,6 @@ class FCTrainDataModule(pl.LightningDataModule):
 		self.batch_size = batch_size
 		self.num_workers = num_workers
 		self.train_transform = train_transform
-		self.val_transform = val_transform
 		self.shuffle = shuffle
 	def prepare_data(self):
 		pass

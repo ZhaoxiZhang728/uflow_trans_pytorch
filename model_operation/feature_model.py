@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import lightning as pl
 
-class PWCFeaturePyramid(nn.Module):
+class PWCFeaturePyramid(pl.LightningModule):
     """Model for computing a feature pyramid from an image."""
 
     def __init__(self,
@@ -79,6 +79,7 @@ class PWCFeaturePyramid(nn.Module):
                 else:
                     k = 1
 
+                norm = nn.BatchNorm2d(starter)
                 conv = nn.Conv2d(
                     in_channels=starter,
                     out_channels=int(num_filters * self._channel_multiplier),
@@ -88,11 +89,11 @@ class PWCFeaturePyramid(nn.Module):
                     dtype=self._dtype_policy)
 
                 activation = nn.LeakyReLU(negative_slope=self._leaky_relu_alpha)
-                group.extend([conv,activation])
+                group.extend([norm,conv,activation])
                 starter = int(num_filters * self._channel_multiplier)
             self.convs.append(nn.Sequential(*group))
         self.mo = nn.ModuleList(self.convs)
-        self.freeze_weight(self.mo)
+        #self.freeze_weight(self.mo)
     def freeze_weight(self, model):
         for param in model.parameters():
             param.requires_grad = False
@@ -102,9 +103,8 @@ class PWCFeaturePyramid(nn.Module):
         x = x * 2. - 1.  # Rescale input from [0,1] to [-1, 1]
         features = []
         for layer in self.mo:
-
             x = layer(x)
-            features.append(x.clone())
+            features.append(x)
         if split_features_by_sample:
             # Split the list of features per level (for all samples) into a nested
             # list that can be indexed by [sample][level].

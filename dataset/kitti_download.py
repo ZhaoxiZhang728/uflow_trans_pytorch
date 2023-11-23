@@ -9,3 +9,5 @@ url = "url to download kitti"
 # Use torchvision's download utility to fetch the data
 tv_utils.download_and_extract_archive(url, download_path)
 '''
+
+ds = Kitti(root='/playpen/zhaoxizh/dataset/kitti',download=True)

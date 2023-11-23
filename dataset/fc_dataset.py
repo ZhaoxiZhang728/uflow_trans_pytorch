@@ -14,9 +14,9 @@ class FCDataset(Dataset):
         self.selection = np.array([0,1])
     def __getitem__(self, index):
         # for training, randomly sample pairs from sequence
-        fn1,fn2 = np.random.choice(self.selection, size=2)
-        im1 = self.ds[index][fn1]
-        im2 = self.ds[index][fn2]
+        #fn1,fn2 = np.random.choice(self.selection, size=2)
+        im1 = self.ds[index][0]
+        im2 = self.ds[index][1]
         flow = torch.from_numpy(self.ds[index][2])
 
 
@@ -24,12 +24,14 @@ class FCDataset(Dataset):
         im2 = self.img_transform(im2)
         flow = self.flow_transform(flow)
         dicts = {
-            'images': torch.stack([im1, im2])  # the output size after dataloader is [batch_size, 2, 3,height,width]
+            'images': torch.stack([im1, im2]) # the output size after dataloader is [batch_size, 2, 3,height,width]
             ,
-            'labels': {
-                'flow_uv': flow
-            }
+            'labels': dict()
         }
+        dicts['labels']['flow_uv'] = flow
+        dicts['labels']['flow_valid'] = False
+        dicts['labels']['occlusions'] = False
+        dicts['labels']['images_without_photo_aug'] = False
         return dicts
 
     def __len__(self):
@@ -39,12 +41,17 @@ class FCDataset(Dataset):
 
 if __name__ == '__main__':
     fc_path = '/playpen/zhaoxizh/datasets/FC_dataset'
-    training_transforms = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Resize((256,600))
+    training_img_transforms = transforms.Compose([
+        transforms.Resize((256, 512)),
+        transforms.ToTensor()
     ])
-    ds = FCDataset(fc_path ,transform=training_transforms,mode='train')
-    print(len(ds))
+
+    training_flow_transforms = transforms.Compose([
+        transforms.Resize((256, 512))
+    ])
+    ds = FCDataset(fc_path,img_transform =training_img_transforms,flow_transform=training_flow_transforms,mode='train')
+    print(ds[0])
+
 
 
 

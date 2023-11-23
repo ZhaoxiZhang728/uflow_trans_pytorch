@@ -31,14 +31,15 @@ def parser_arg():
                         help='Training log output directory')
     parser.add_argument('--load_checkpoint', type=str, default='', help='Load checkpoint')
     parser.add_argument('--check',type=bool,default=True,help='For checking whether successfully read the arg')
-    parser.add_argument('--train_data_dir', type=str, default='/playpen/zhaoxizh/datasets/FC_dataset', help='Train data directory')
+    parser.add_argument('--train_data_dir', type=str, default='/playpen/zhaoxizh/datasets/Sintel/',
+                        help='Train data directory')
     parser.add_argument('--test_data_dir', type=str, default='', help='Test data directory')
     parser.add_argument('--no_tf_function',type=bool,default=False,help='If True, run without'
         ' tf functions. This incurs a performance hit, but can'
         ' make debugging easier.')
     parser.add_argument('--eval_data_dir', type=str, default='', help='Eval data directory')
     parser.add_argument('--test_dir',type=str,default='',help='Test data directory')
-    parser.add_argument('--plot_dir',type=str,default='',help='Plot data directory')
+    parser.add_argument('--plot_dir',type=str,default='/playpen/zhaoxizh/plot_result',help='Plot data directory')
     #parser.add_argument('--checkpoint_dir',type=str,default='',help='Path to directory for saving and restoring checkpoints.')
 
     #parser.add_argument('--init_checkpoint_dir',type=str,default='',help='Path to directory for initializing from a checkpoints.')
@@ -57,8 +58,10 @@ def parser_arg():
                       'Do not save model checkpoints during training.')
     parser.add_argument('--epoch_length',type=int,default=1000,
                          help='Number of gradient steps per epoch.')
-    parser.add_argument('--num_train_steps', type=int,default=10,help=
+    parser.add_argument('--num_train_steps', type=int,default=200,help=
                          'Number of! gradient steps to train for.')
+    parser.add_argument('--num_pre_train_steps', type=int, default=100, help=
+    'Number of! gradient steps to train for.')
     parser.add_argument('--selfsup_after_num_steps', type=int,default=5e5,help=
                          'Number of gradient steps before self-supervision.')
     parser.add_argument('--selfsup_ramp_up_steps', type=int,default=1e5,help=
@@ -79,7 +82,7 @@ def parser_arg():
                         'Batch size for training flow on gpu.')
     parser.add_argument('--optimizer', type=str,default='adam', help=
                         'One of "adam", "sgd"')
-    parser.add_argument('--gpu_learning_rate', type=float,default=1e-4, help=
+    parser.add_argument('--gpu_learning_rate', type=float,default=0.0001, help=
                         'Learning rate for training UFlow on GPU.')
     parser.add_argument('--lr_decay_after_num_steps', type=int,default=0, help=
                         'decay rate of lr')
@@ -152,7 +155,7 @@ def parser_arg():
     parser.add_argument('--smoothness_edge_weighting', type=str,default='exponential',help=
                         'One of: gaussian, exponential')
     parser.add_argument('--smoothness_at_level', type=int,default=2,help= '')
-    parser.add_argument('--weight_selfsup',type=float,default= 0.6, help=
+    parser.add_argument('--weight_selfsup',type=float,default= 2.0, help=
                         'Weight for self-supervision loss.')
     parser.add_argument('--weight_transl_consist', type=float,default=0.0,help=
                        'Weight for loss enforcing uniform source usage.')
@@ -178,7 +181,7 @@ def parser_arg():
                         'Which type of distance metric to use when computing loss.')
     parser.add_argument('--distance_photo', type=str,default='robust_l1', help=
                         'Which type of distance metric to use when computing loss.')
-    parser.add_argument('--use_supervision', type=bool,default=True, help=
+    parser.add_argument('--use_supervision', type=bool,default=False, help=
                         'Whether or not to train with a supervised loss.')
     parser.add_argument('--resize_gt_flow_supervision', type=bool,default=True, help=
                         'Whether or not to resize ground truth flow for the supervised loss.')
@@ -193,4 +196,4 @@ def parser_arg():
                         'Newline separated list of Gin parameter bindings. Can be specified '
                         'multiple times. Overrides config from --config_file.')
 
-    return parser.parse_args()
+    return parser

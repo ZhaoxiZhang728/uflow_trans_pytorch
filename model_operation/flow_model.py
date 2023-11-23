@@ -1,5 +1,5 @@
 import torch
-from torch.nn import Conv2d,ConvTranspose2d,ModuleList,Identity,LeakyReLU,Sequential
+from torch.nn import Conv2d,ConvTranspose2d,ModuleList,Identity,LeakyReLU,Sequential,BatchNorm2d
 import torch.nn.functional as F
 import collections
 from utils.uflow_utils import upsample,flow_to_warp
@@ -51,9 +51,9 @@ def normalize_features(feature_list, normalize, center, moments_across_channels,
         statistics['var'].append(variance)
 
     if moments_across_images:
-        statistics['mean'] = ([torch.mean(input=torch.tensor(statistics['mean']))] *
+        statistics['mean'] = ([torch.mean(input=torch.stack(statistics['mean']))] *
                               len(feature_list))
-        statistics['var'] = [torch.mean(input=torch.tensor(statistics['var']))
+        statistics['var'] = [torch.mean(input=torch.stack(statistics['var']))
                              ] * len(feature_list)
 
     statistics['std'] = [torch.sqrt(v + 1e-16) for v in statistics['var']]
@@ -148,16 +148,16 @@ class PWCFlow(pl.LightningModule):
         self._flow_layers = ModuleList(self._build_flow_layers())
         if not self._use_cost_volume:
             self._cost_volume_surrogate_convs = ModuleList(self._build_cost_volume_surrogate_convs())
-            self.freeze_weight(self._cost_volume_surrogate_convs)
+            #self.freeze_weight(self._cost_volume_surrogate_convs)
         if self._num_context_up_channels:
             self._context_up_layers = ModuleList(self._build_upsample_layers(out_channel=int(self._num_context_up_channels * self._channel_multiplier)))
-            self.freeze_weight(self._context_up_layers)
+            #self.freeze_weight(self._context_up_layers)
         if self._shared_flow_decoder:
             self._1x1_shared_decoder = ModuleList(self._build_1x1_shared_decoder())
-            self.freeze_weight(self._1x1_shared_decoder)
+            #self.freeze_weight(self._1x1_shared_decoder)
         self.activation = LeakyReLU(negative_slope=self._leaky_relu_alpha)
 
-        self.freeze_weight(self._flow_layers)
+        #self.freeze_weight(self._flow_layers)
   def forward(self, feature_pyramid1, feature_pyramid2, training=False):
         flow_up = None
         context_up = None
@@ -187,7 +187,6 @@ class PWCFlow(pl.LightningModule):
                 center=self._normalize_before_cost_volume,
                 moments_across_channels=True,
                 moments_across_images=True)
-
             # print('feature1_normalized',features1_normalized.shape)
             # print('warp2_normalized',warped2_normalized.shape)
             if self._use_cost_volume:  # if self._use_cost_volume:
@@ -274,6 +273,7 @@ class PWCFlow(pl.LightningModule):
         layers = []
         for c, d in [(128, 1), (128, 2), (128, 4), (96, 8), (64, 16), (32, 1)]:
             layers.append(Sequential(
+                BatchNorm2d(in_channel),
                 Conv2d(
                     in_channels=in_channel,
                     out_channels=int(c * self._channel_multiplier),
@@ -299,10 +299,10 @@ class PWCFlow(pl.LightningModule):
       for _ in range(self._num_levels):
           layers.append(
                   Conv2d(
-                  in_channels=32,
+                  in_channels=64,
                   out_channels=int(64 * self._channel_multiplier),
                   kernel_size=(4, 4),
-                  # P = ((S-1)*W-S+F)/2, with F = filter size, S = stride, W = input size
+                  padding='same',
                   stride=(1, 1)
               )
           )
@@ -343,8 +343,7 @@ class PWCFlow(pl.LightningModule):
                           padding=1),
                       LeakyReLU(
                           negative_slope=self._leaky_relu_alpha)
-              )
-              )
+              ))
               in_channel = int(o * self._channel_multiplier)
           layer.append(
               Conv2d(
@@ -369,8 +368,7 @@ class PWCFlow(pl.LightningModule):
                   padding=1),
               LeakyReLU(
                   negative_slope=self._leaky_relu_alpha)
-          )
-          )
+          ))
           in_channel = int(o * self._channel_multiplier)
 
       layer.append(

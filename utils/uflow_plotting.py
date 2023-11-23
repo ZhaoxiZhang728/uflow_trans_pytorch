@@ -77,7 +77,7 @@ def save_and_close(filename):
   """Save figures."""
   # Create a python byte stream into which to write the plot image.
 
-  new_file_name = os.path.splitext(filename)[0]+".txt"
+  #new_file_name = os.path.splitext(filename)[0]+".txt"
   buf = io.BytesIO()
 
   # Save the image into the buffer.
@@ -87,11 +87,13 @@ def save_and_close(filename):
   buf.seek(0)
 
   # make a little bit change here, specify the file end with '.txt'
-  with open(new_file_name, 'w') as f:
-      f.write(buf.read(-1))
 
+  #alternative solution
+  img_png = buf.getvalue()
+  with open(filename, 'wb') as f:
+      f.write(img_png)
   plt.close('all')
-  return
+
 
 
 
@@ -123,71 +125,44 @@ def plot_data(data_it, plot_dir, num_plots):
         save_image_as_png(
             image, os.path.join(plot_dir, '{}_{}_{}.png'.format(i, j, k)))
 
-def hsv_to_rgb(hsv_image):
-    h, s, v = hsv_image[...,0], hsv_image[...,1],hsv_image[...,2]
-    c = v * s
-    x = c * (1 - torch.abs(torch.fmod((h / (2 * np.math.pi)), 2) - 1))
-    m = v - c
-
-    r, g, b = torch.zeros_like(h), torch.zeros_like(h), torch.zeros_like(h)
-
-    h_prime = h / (2 * np.math.pi)
-
-    r[h_prime < 1/6] = c[h_prime < 1/6]
-    g[h_prime < 1/6] = x[h_prime < 1/6]
-
-    g[(1/6 <= h_prime) & (h_prime < 1/3)] = c[(1/6 <= h_prime) & (h_prime < 1/3)]
-    r[(1/6 <= h_prime) & (h_prime < 1/3)] = x[(1/6 <= h_prime) & (h_prime < 1/3)]
-
-    g[(1/3 <= h_prime) & (h_prime < 1/2)] = c[(1/3 <= h_prime) & (h_prime < 1/2)]
-    b[(1/3 <= h_prime) & (h_prime < 1/2)] = x[(1/3 <= h_prime) & (h_prime < 1/2)]
-
-    b[(1/2 <= h_prime) & (h_prime < 2/3)] = c[(1/2 <= h_prime) & (h_prime < 2/3)]
-    g[(1/2 <= h_prime) & (h_prime < 2/3)] = x[(1/2 <= h_prime) & (h_prime < 2/3)]
-
-    b[(2/3 <= h_prime) & (h_prime < 5/6)] = c[(2/3 <= h_prime) & (h_prime < 5/6)]
-    r[(2/3 <= h_prime) & (h_prime < 5/6)] = x[(2/3 <= h_prime) & (h_prime < 5/6)]
-
-    r[5/6 <= h_prime] = c[5/6 <= h_prime]
-    b[5/6 <= h_prime] = x[5/6 <= h_prime]
-
-    r, g, b = r + m, g + m, b + m
-
-    return torch.stack((r, g, b), dim=-1)
+def hsv2rgb_torch(hsv: torch.Tensor) -> torch.Tensor:
+    hsv_h, hsv_s, hsv_l = hsv[:, 0:1], hsv[:, 1:2], hsv[:, 2:3]
+    _c = hsv_l * hsv_s
+    _x = _c * (- torch.abs(hsv_h * 6. % 2. - 1) + 1.)
+    _m = hsv_l - _c
+    _o = torch.zeros_like(_c)
+    idx = (hsv_h * 6.).type(torch.uint8)
+    idx = (idx % 6).expand(-1, 3, -1, -1)
+    rgb = torch.empty_like(hsv)
+    rgb[idx == 0] = torch.cat([_c, _x, _o], dim=1)[idx == 0]
+    rgb[idx == 1] = torch.cat([_x, _c, _o], dim=1)[idx == 1]
+    rgb[idx == 2] = torch.cat([_o, _c, _x], dim=1)[idx == 2]
+    rgb[idx == 3] = torch.cat([_o, _x, _c], dim=1)[idx == 3]
+    rgb[idx == 4] = torch.cat([_x, _o, _c], dim=1)[idx == 4]
+    rgb[idx == 5] = torch.cat([_c, _o, _x], dim=1)[idx == 5]
+    rgb += _m
+    return rgb
 
 def flow_to_rgb(flow):
   """Computes an RGB visualization of a flow field."""
   shape = flow.shape
-  is_graph_mode = False
-  if not isinstance(shape[0], int):  # In graph mode, this is a Dimension object
-    is_graph_mode = True
-    shape = [s.value for s in shape]
+
   height, width = [float(s) for s in shape[-2:]] # [b,c,h,w]
   scaling = _FLOW_SCALING_FACTOR / (height**2 + width**2)**0.5
 
   # Compute angles and lengths of motion vectors.
-  if is_graph_mode:
-    motion_angle = torch.atan2(flow[Ellipsis, 1], flow[Ellipsis, 0])
-  else:
-    motion_angle = np.arctan2(flow[Ellipsis, 1], flow[Ellipsis, 0])
-  motion_magnitude = (flow[Ellipsis, 1]**2 + flow[Ellipsis, 0]**2)**0.5
+
+  motion_angle = np.arctan2(flow[1,Ellipsis], flow[0,Ellipsis])
+  motion_magnitude = (flow[1,Ellipsis]**2 + flow[0,Ellipsis]**2)**0.5
 
   # Visualize flow using the HSV color space, where angles are represented by
   # hue and magnitudes are represented by saturation.
-  if is_graph_mode:
-    flow_hsv = torch.stack([((motion_angle / np.math.pi) + 1.) / 2.,
-                         torch.clip(motion_magnitude * scaling, 0.0, 1.0),
-                         torch.ones_like(motion_magnitude)],
-                        dim=-1)
-  else:
-    flow_hsv = np.stack([((motion_angle / np.math.pi) + 1.) / 2.,
+  flow_hsv = np.stack([((motion_angle / np.math.pi) + 1.) / 2.,
                          np.clip(motion_magnitude * scaling, 0.0, 1.0),
                          np.ones_like(motion_magnitude)],
                         axis=-1)
 
   # Transform colors from HSV to RGB color space for plotting.
-  if is_graph_mode:
-    return torch.tensor(matplotlib.colors.hsv_to_rgb(flow_hsv)) #not sure about whether the function is right or not ? should be no problem
   return matplotlib.colors.hsv_to_rgb(flow_hsv)
 
 
@@ -217,7 +192,7 @@ def flow_tensor_to_rgb_tensor(motion_image):
   motion_magnitude = torch.clamp(motion_magnitude * scaling, 0.0, 1.0)
   value_channel = torch.ones_like(motion_angle)
   flow_hsv = torch.stack([motion_angle, motion_magnitude, value_channel], dim=-1)
-  flow_rgb = TTF.convert_image_dtype(hsv_to_rgb(flow_hsv),torch.uint8)
+  flow_rgb = matplotlib.colors.hsv_to_rgb(flow_hsv.detach().numpy())
   return flow_rgb
 
 
@@ -379,29 +354,32 @@ def plot_selfsup(key, images, flows, teacher_flow, student_flow, error,
     plt.subplot(num_rows, num_columns, 1 + column + row * num_columns)
 
   i, j, _ = key
-  height, width = [float(s.value) for s in images[i].shape[-2:]]
+  height, width = images[i].shape[-2:]
   plt.figure('plot_flow',
              [10. * num_columns * width / (num_rows * height), 10.])
   plt.clf()
 
   subplot_at(0, 0)
-  plt.imshow((images[i][0] + images[j][0]) / 2., interpolation='nearest')
+  plt.imshow(((images[i][0].permute(1, 2, 0) +
+              images[j][0].permute(1, 2, 0)) / 2.).cpu().detach().numpy(),
+             interpolation='nearest')
   post_imshow('Teacher images')
 
   subplot_at(0, 1)
 
   transformed_image_i = selfsup_transform_fns[0](
-      images[i], i_or_ij=i, is_flow=False)
+      images[i].detach(), i_or_ij=i, is_flow=False)
   transformed_image_j = selfsup_transform_fns[0](
-      images[j], i_or_ij=j, is_flow=False)
+      images[j].detach(), i_or_ij=j, is_flow=False)
   plt.imshow(
-      (transformed_image_i[0] + transformed_image_j[0]) / 2.,
+      (transformed_image_i[0].permute(1, 2, 0).cpu().detach().numpy() +
+       transformed_image_j[0].permute(1, 2, 0).cpu().detach().numpy()) / 2.,
       interpolation='nearest')
   post_imshow('Student images')
 
   subplot_at(0, 2)
   plt.imshow(
-      teacher_mask[0, Ellipsis, 0],
+      teacher_mask[0, 0,Ellipsis].cpu().detach().numpy(),
       interpolation='nearest',
       vmin=0.,
       vmax=1.,
@@ -410,17 +388,17 @@ def plot_selfsup(key, images, flows, teacher_flow, student_flow, error,
 
   subplot_at(1, 0)
   plt.imshow(
-      flow_to_rgb(flows[(i, j, 'original-teacher')][0][0].numpy()),
+      flow_to_rgb(flows[(i, j, 'original-teacher')][0][0].cpu().detach().numpy()),
       interpolation='nearest')
   post_imshow('Teacher flow')
 
   subplot_at(1, 1)
-  plt.imshow(flow_to_rgb(student_flow[0].numpy()), interpolation='nearest')
+  plt.imshow(flow_to_rgb(student_flow[0].cpu().detach().numpy()), interpolation='nearest')
   post_imshow('Student flow')
 
   subplot_at(1, 2)
   plt.imshow(
-      student_mask[0, Ellipsis, 0],
+      student_mask[0, 0, Ellipsis].cpu().detach().numpy(),
       interpolation='nearest',
       vmin=0.,
       vmax=1.,
@@ -428,12 +406,12 @@ def plot_selfsup(key, images, flows, teacher_flow, student_flow, error,
   post_imshow('Student mask')
 
   subplot_at(2, 0)
-  plt.imshow(flow_to_rgb(teacher_flow[0].numpy()), interpolation='nearest')
+  plt.imshow(flow_to_rgb(teacher_flow[0].cpu().detach().numpy()), interpolation='nearest')
   post_imshow('Teacher flow (projected)')
 
   subplot_at(2, 1)
   plt.imshow(
-      error[0, Ellipsis, 0],
+      error[0, 0, Ellipsis].cpu().detach().numpy(),
       interpolation='nearest',
       vmin=0.,
       vmax=3.,
@@ -442,7 +420,7 @@ def plot_selfsup(key, images, flows, teacher_flow, student_flow, error,
 
   subplot_at(2, 2)
   plt.imshow(
-      mask[0, Ellipsis, 0],
+      mask[0, 0, Ellipsis].cpu().detach().numpy(),
       interpolation='nearest',
       vmin=0.,
       vmax=1.,
@@ -458,7 +436,14 @@ def plot_selfsup(key, images, flows, teacher_flow, student_flow, error,
 
 def plot_smoothness(key, images, weights_xx, weights_yy, flow_gxx_abs,
                     flow_gyy_abs, flows, plot_dir):
-  """Plots data relevant to smoothness."""
+  """Plots data relevant to smoothness.
+  image: [b,3, height,width]
+  weights_xx : [batch,1,height,width]
+  weights_yy : same with weights_xx
+  flow_gxx_abs : [batch,2,height,width]
+
+  flow_gyy_abs: same with flow_gxx_abs
+  """
   num_rows = 3
   num_columns = 3
 
@@ -466,41 +451,40 @@ def plot_smoothness(key, images, weights_xx, weights_yy, flow_gxx_abs,
     plt.subplot(num_rows, num_columns, 1 + column + row * num_columns)
 
   i, j, c = key
-  height, width = [float(s.value) for s in images[i].shape[-2:]]
-  plt.figure('plot_flow',
-             [10. * num_columns * width / (num_rows * height), 10.])
+  height, width = images[i].shape[-2:]
+  plt.figure('plot_flow', [10. * num_columns * width / (num_rows * height), 10.])
   plt.clf()
 
   subplot_at(0, 0)
-  plt.imshow(images[i][0], interpolation='nearest')
+  plt.imshow(images[i][0].permute(1, 2, 0).cpu().detach().numpy(), interpolation='nearest')
   post_imshow('Image')
 
   subplot_at(1, 0)
   plt.imshow(
-      weights_xx[0, Ellipsis, 0],
+      weights_xx[0, 0,Ellipsis].cpu().detach().numpy(),
       interpolation='nearest',
       cmap='viridis',
       vmin=0.0,
       vmax=1.0)
-  post_imshow('Weights dxx {}'.format(np.mean(weights_xx[0, Ellipsis, 0])))
+  post_imshow('Weights dxx {}'.format(torch.mean(weights_xx[0, 0,Ellipsis].detach())))
 
   subplot_at(2, 0)
   plt.imshow(
-      weights_yy[0, Ellipsis, 0],
+      weights_yy[0, 0,Ellipsis].cpu().detach().numpy(),
       interpolation='nearest',
       cmap='viridis',
       vmin=0.0,
       vmax=1.0)
-  post_imshow('Weights dyy {}'.format(np.mean(weights_yy[0, Ellipsis, 0])))
+  post_imshow('Weights dyy {}'.format(torch.mean(weights_yy[0, 0,Ellipsis].detach())))
 
   subplot_at(0, 1)
   plt.imshow(
-      flow_to_rgb(flows[(i, j, c)][0][0].numpy()), interpolation='nearest')
+      flow_to_rgb(flows[(i, j, c)][0][0].cpu().detach().numpy()), interpolation='nearest')
   post_imshow('Flow')
 
   subplot_at(1, 1)
   plt.imshow(
-      flow_gxx_abs[0, Ellipsis, 0],
+      flow_gxx_abs[0, 0,Ellipsis].cpu().detach().numpy(),
       interpolation='nearest',
       cmap='viridis',
       vmin=0.0,
@@ -509,7 +493,7 @@ def plot_smoothness(key, images, weights_xx, weights_yy, flow_gxx_abs,
 
   subplot_at(2, 1)
   plt.imshow(
-      flow_gyy_abs[0, Ellipsis, 0],
+      flow_gyy_abs[0, 0,Ellipsis].cpu().detach().numpy(),
       interpolation='nearest',
       cmap='viridis',
       vmin=0.0,
@@ -518,7 +502,7 @@ def plot_smoothness(key, images, weights_xx, weights_yy, flow_gxx_abs,
 
   subplot_at(1, 2)
   plt.imshow(
-      weights_xx[0, Ellipsis, 0] * flow_gxx_abs[0, Ellipsis, 0],
+      (weights_xx[0, 0,Ellipsis] * flow_gxx_abs[0, 0,Ellipsis]).cpu().detach().numpy(),
       interpolation='nearest',
       cmap='viridis',
       vmin=0.0,
@@ -527,7 +511,7 @@ def plot_smoothness(key, images, weights_xx, weights_yy, flow_gxx_abs,
 
   subplot_at(2, 2)
   plt.imshow(
-      weights_yy[0, Ellipsis, 0] * flow_gyy_abs[0, Ellipsis, 0],
+      (weights_yy[0, 0,Ellipsis] * flow_gyy_abs[0, 0,Ellipsis]).cpu().detach().numpy(),
       interpolation='nearest',
       cmap='viridis',
       vmin=0.0,

@@ -25,6 +25,7 @@ from math import pi
 #import gin
 #import gin.tf
 #import tensorflow as tf
+import numpy as np
 import torch
 import torchvision.transforms as TT
 import torchvision.transforms.functional as TTF
@@ -632,6 +633,7 @@ def build_selfsup_transformations(num_flow_levels=3,
 
   def transform(images, i_or_ij, is_flow, crop_height, crop_width,
                 shift_heights, shift_widths, resize):
+    device = images.device
     # Expect (i, j) for flows and masks and i for images.
     if isinstance(i_or_ij, int):
       i = i_or_ij
@@ -641,8 +643,8 @@ def build_selfsup_transformations(num_flow_levels=3,
       i, j = i_or_ij
 
     if is_flow:
-      shifts = torch.stack([shift_heights, shift_widths], dim=-1)
-      flow_offset = shifts[i] - shifts[j]
+      shifts = np.stack([shift_heights, shift_widths], axis=-1)
+      flow_offset = torch.tensor(shifts[i] - shifts[j],device=device).reshape(1,2,1,1)
       images = images + flow_offset.type(torch.float32)
 
     shift_height = shift_heights[i]

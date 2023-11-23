@@ -584,6 +584,7 @@ def resize(img, height, width, is_flow, mask=None):
   """
 
   def _resize(img, mask=None):
+    device = img.device
     orig_height, orig_width = img.shape[-2:]
 
     #orig_height = img.shape[1]
@@ -623,7 +624,7 @@ def resize(img, height, width, is_flow, mask=None):
       scaling = torch.reshape(torch.tensor([
           float(height) / orig_height,
           float(width) / orig_width
-      ],dtype = torch.float32), [1, 2, 1, 1]) # original shape is [1,1,1,2]
+      ],dtype = torch.float32,device=device), [1, 2, 1, 1]) # original shape is [1,1,1,2]
       #print("scaling :",scaling)
       img_resized *= scaling
 

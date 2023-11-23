@@ -1,6 +1,5 @@
 import lightning as pl
 import torch
-import torch.nn as nn
 from model_operation.feature_model import PWCFeaturePyramid
 from model_operation.flow_model import PWCFlow
 from utils.uflow_utils import compute_features_and_flow,compute_flow_for_supervised_loss,apply_warps_stop_grad,compute_warps_and_occlusion,resize
@@ -8,7 +7,6 @@ from model_operation.loss import supervised_loss,compute_loss
 import math
 import numpy as np
 from torch.optim.lr_scheduler import LambdaLR
-#from model_operation.loss
 
 
 class Multinet(pl.LightningModule):
@@ -51,7 +49,9 @@ class Multinet(pl.LightningModule):
       lr_decay_after_num_steps = None,
       lr_decay_steps = None,
       gpu_learning_rate = None,
-      lr_decay_type = None
+      lr_decay_type = None,
+      selfsup_weight_update = None,
+      selfsup_weight = 0
     ):
         super().__init__()
         self._lr_decay_type = lr_decay_type
@@ -155,21 +155,27 @@ class Multinet(pl.LightningModule):
             'census': 1.0,
             'supervision':1.0
             }
+        self.weights['selfsup'] = selfsup_weight
+
+        self.weights = {
+            k: v for (k, v) in self.weights.items() if v > 1e-7 or k == 'edge_constant'
+        }
+        self._selfsup_weight_update = selfsup_weight_update
         self.distance_metrics = distance_metrics
         self.occ_active  = occ_active
 
-    def forward(self, image):
-        return self._feature_net(image)
+    def forward(self,img):
+        return self._feature_net(img)
 
     def forward_backprop(self, batch):
 
 
         images, labels = batch['images'], batch['labels']
 
-        ground_truth_flow = labels['flow_uv']
-        ground_truth_valid = None
-        ground_truth_occlusions = None
-        images_without_photo_aug = None
+        ground_truth_flow = labels['flow_uv'] if len(labels['flow_uv'].shape) > 1 else None
+        ground_truth_valid = labels['flow_valid'] if len(labels['flow_valid'].shape) > 1 else None
+        ground_truth_occlusions = labels['occlusions'] if len(labels['occlusions'].shape) > 1 else None
+        images_without_photo_aug = labels['images_without_photo_aug'] if len(labels['images_without_photo_aug'].shape) > 1 else None
 
         if self._train_with_supervision:
             if ground_truth_flow is None:
@@ -178,11 +184,13 @@ class Multinet(pl.LightningModule):
                 flows = compute_flow_for_supervised_loss(
                     self._feature_net, self._flow_net, batch=images, training=True)
                 losses = supervised_loss(self.weights, ground_truth_flow,
-                                                     ground_truth_valid, flows)
+                                         ground_truth_valid, flows)
 
                 losses = {key + '-loss': losses[key] for key in losses}
                 return losses['total-loss']
         else:
+            if self._selfsup_weight_update is not None:
+                self.weight_updata()
             if images_without_photo_aug is None:
                 images_without_photo_aug = images
             flows, selfsup_transform_fns = compute_features_and_flow(
@@ -235,7 +243,7 @@ class Multinet(pl.LightningModule):
                                     ground_truth_occlusions=ground_truth_occlusions,
                                     smoothness_at_level=self._smoothness_at_level)
             losses = {key + '-loss': losses[key] for key in losses}
-            return losses['total-loss']
+            return losses
 
     def training_step(self, batch, batch_idx):
         '''
@@ -245,18 +253,19 @@ class Multinet(pl.LightningModule):
             print(f"Current Learning Rate for optimizer {idx}: {lr}"
         '''
         loss = self.forward_backprop(batch)
-        self.log('train-loss', loss)
-        return loss
+
+        #print("Gradients:", [param.grad for param in self.parameters()]) #we have parameters
+
+        self.log_dict(loss, on_step=True, on_epoch=True,logger=True,prog_bar=True)
+
+        self.clear_gpu()
+        return loss['total-loss']
 
     def validation_step(self, batch, batch_idx):
         loss = self.forward_backprop(batch)
-        self.log('val-loss', loss)
-        return loss
+        self.log('val-loss', loss['total-loss'])
+        return loss['total-loss']
 
-    def test_step(self, batch, batch_idx):
-        loss = self.forward_backprop(batch)
-        self.log('test-loss', loss)
-        return loss
 
     def configure_optimizers(self):
         if self._optimizer == ('adam',):
@@ -266,7 +275,7 @@ class Multinet(pl.LightningModule):
 
         lr_scheduler = LambdaLR(optimizer, lr_lambda=self.lr_lambda)
         #scheduler = LambdaLR(optimizer=optimizer, lr_lambda= [])
-
+        optimizer.zero_grad()
         return [optimizer], [lr_scheduler]
     def get_occ_active(self):
         current_step = self.global_step
@@ -275,7 +284,10 @@ class Multinet(pl.LightningModule):
         # (They will only be used if occlusion_estimation is set accordingly.)
         occ_active = self.occ_active(current_step)
         return occ_active
-
+    def weight_updata(self):
+        sup_weight = self._selfsup_weight_update(self.global_step)
+        self.weights['selfsup'] = sup_weight
+        print(self.weights['selfsup'])
     def lr_lambda(self,epoch):
 
         effective_step = np.maximum(epoch - self._lr_decay_after_num_steps + 1, 0)
@@ -381,7 +393,6 @@ class Multinet(pl.LightningModule):
             return flow, occlusion_mask
 
         return flow
-
     def infer(self,
               image1,
               image2,
@@ -473,11 +484,11 @@ class Multinet(pl.LightningModule):
         for f1, f2 in zip(prev_flow_output, flow_output):
             assert np.max(f1.numpy() - f2.numpy()) < .01
 
+    def load_parameters(self, checkpoint_path):
+        checkpoint = torch.load(checkpoint_path, map_location=lambda storage, loc: storage)
+        self.model.load_state_dict(checkpoint['state_dict'])
 
-
-
-
-
-
+    def clear_gpu(self):
+        torch.cuda.empty_cache()
 
 
